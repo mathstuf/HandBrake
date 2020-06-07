@@ -66,6 +66,10 @@ ifeq (1,$(FEATURE.nvenc))
     MODULES += contrib/nvenc
 endif
 
+ifeq (1,$(FEATURE.vaapi))
+    MODULES += contrib/libva
+endif
+
 ifneq (,$(filter $(HOST.system),darwin))
     MODULES += contrib/xz
 endif

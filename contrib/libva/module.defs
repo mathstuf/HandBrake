@@ -1,0 +1,25 @@
+$(eval $(call import.MODULE.defs,LIBVA,libva))
+$(eval $(call import.CONTRIB.defs,LIBVA))
+
+LIBVA.FETCH.url      = https://github.com/intel/libva/releases/download/2.7.1/libva-2.7.1.tar.bz2
+LIBVA.FETCH.sha256   = a00ff19d9f969259b9784172adad7788dbf3de827d985c5d27c230efd5d98a04
+LIBVA.EXTRACT.tarbase = libva-2.7.1
+
+LIBVA.build_dir     = build/
+
+LIBVA.CONFIGURE.exe    = $(MESON.exe)
+LIBVA.CONFIGURE.deps   =
+LIBVA.CONFIGURE.shared =
+LIBVA.CONFIGURE.host   =
+LIBVA.CONFIGURE.build  =
+LIBVA.CONFIGURE.static = -Ddefault_library=static
+LIBVA.CONFIGURE.extra  = --libdir=$(call fn.ABSOLUTE,$(CONTRIB.build/))lib/ \
+                            -Denable_tools=false -Denable_tests=false
+LIBVA.CONFIGURE.env    =
+
+LIBVA.BUILD.make       = $(NINJA.exe)
+LIBVA.BUILD.extra      = -v
+
+LIBVA.INSTALL.make     = $(NINJA.exe)
+
+LIBVA.CLEAN.make       = $(NINJA.exe)
