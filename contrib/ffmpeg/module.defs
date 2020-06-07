@@ -8,6 +8,9 @@ endif
 ifeq (1,$(FEATURE.nvenc))
 __deps__ += NVENC
 endif
+ifeq (1,$(FEATURE.vaapi))
+__deps__ += LIBVA
+endif
 
 $(eval $(call import.MODULE.defs,FFMPEG,ffmpeg,$(__deps__)))
 $(eval $(call import.CONTRIB.defs,FFMPEG))
@@ -70,6 +73,10 @@ ifneq (,$(filter $(FEATURE.qsv)-$(HOST.system),1-linux 1-freebsd))
     FFMPEG.CONFIGURE.extra += --disable-xlib
 else
     FFMPEG.CONFIGURE.extra += --disable-vaapi
+endif
+
+ifneq (,$(FEATURE.vaapi))
+    FFMPEG.CONFIGURE.extra += --enable-vaapi
 endif
 
 ifeq (1,$(FEATURE.fdk_aac))
