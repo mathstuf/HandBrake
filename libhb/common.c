@@ -38,6 +38,9 @@
 #if HB_PROJECT_FEATURE_VCE
 #include "handbrake/vce_common.h"
 #endif
+#if HB_PROJECT_FEATURE_VAAPI
+#include "handbrake/vaapi_common.h"
+#endif
 
 #ifdef __APPLE__
 #include "platform/macosx/vt_common.h"
@@ -255,6 +258,7 @@ hb_encoder_internal_t hb_video_encoders[]  =
     { { "H.264 (AMD VCE)",     "vce_h264",   "H.264 (AMD VCE)",      HB_VCODEC_FFMPEG_VCE_H264,   HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "H.264 (NVEnc)",       "nvenc_h264", "H.264 (NVEnc)",      HB_VCODEC_FFMPEG_NVENC_H264, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "H.264 (VideoToolbox)","vt_h264",    "H.264 (libavcodec)",      HB_VCODEC_FFMPEG_VT_H264,    HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
+    { { "H.264 (libva)",       "hevc_vaapi", "H.264 (vaapi)",           HB_VCODEC_FFMPEG_VAAPI_H264, HB_MUX_AV_MP4|HB_MUX_AV_MKV,     }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "H.265 (x265)",        "x265",       "H.265 (libx265)",         HB_VCODEC_X265_8BIT,         HB_MUX_AV_MP4|HB_MUX_AV_MKV,   }, NULL, 1, HB_GID_VCODEC_H265,   },
     { { "H.265 10-bit (x265)", "x265_10bit", "H.265 10-bit (libx265)",  HB_VCODEC_X265_10BIT,        HB_MUX_AV_MP4|HB_MUX_AV_MKV,   }, NULL, 1, HB_GID_VCODEC_H265,   },
     { { "H.265 12-bit (x265)", "x265_12bit", "H.265 12-bit (libx265)",  HB_VCODEC_X265_12BIT,        HB_MUX_AV_MP4|HB_MUX_AV_MKV,   }, NULL, 1, HB_GID_VCODEC_H265,   },
@@ -264,6 +268,7 @@ hb_encoder_internal_t hb_video_encoders[]  =
     { { "H.265 (AMD VCE)",     "vce_h265",   "H.265 (AMD VCE)",      HB_VCODEC_FFMPEG_VCE_H265,   HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H265,   },
     { { "H.265 (NVEnc)",       "nvenc_h265", "H.265 (NVEnc)",      HB_VCODEC_FFMPEG_NVENC_H265, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H265,   },
     { { "H.265 (VideoToolbox)","vt_h265",    "H.265 (libavcodec)",      HB_VCODEC_FFMPEG_VT_H265,    HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H265,   },
+    { { "H.265 (libva)",       "hevc_vaapi", "H.265 (vaapi)",           HB_VCODEC_FFMPEG_VAAPI_H265, HB_MUX_AV_MP4|HB_MUX_AV_MKV,     }, NULL, 1, HB_GID_VCODEC_H265,   },
     { { "MPEG-4",              "mpeg4",      "MPEG-4 (libavcodec)",     HB_VCODEC_FFMPEG_MPEG4,      HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_MPEG4,  },
     { { "MPEG-2",              "mpeg2",      "MPEG-2 (libavcodec)",     HB_VCODEC_FFMPEG_MPEG2,      HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_MPEG2,  },
     { { "VP8",                 "VP8",        "VP8 (libvpx)",            HB_VCODEC_FFMPEG_VP8,       HB_MUX_MASK_WEBM|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_VP8,    },
@@ -296,6 +301,13 @@ static int hb_video_encoder_is_enabled(int encoder, int disable_hardware)
                 return hb_nvenc_h264_available();
             case HB_VCODEC_FFMPEG_NVENC_H265:
                 return hb_nvenc_h265_available();
+#endif
+
+#if HB_PROJECT_FEATURE_VAAPI
+            case HB_VCODEC_FFMPEG_VAAPI_H264:
+                return hb_vaapi_h264_available();
+            case HB_VCODEC_FFMPEG_VAAPI_H265:
+                return hb_vaapi_h265_available();
 #endif
 
 #ifdef __APPLE__
@@ -1352,6 +1364,8 @@ void hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
         case HB_VCODEC_X265_8BIT:
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
             *direction   = 1;
             *granularity = 0.1;
             *low         = 0.;
@@ -1434,6 +1448,8 @@ const char* hb_video_quality_get_name(uint32_t codec)
         case HB_VCODEC_FFMPEG_VP9:
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
             return "CQ";
 
         default:
@@ -1546,6 +1562,8 @@ const char* const* hb_video_encoder_get_profiles(int encoder)
 
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
         case HB_VCODEC_FFMPEG_VT_H264:
         case HB_VCODEC_FFMPEG_VT_H265:
             return hb_av_profile_get_names(encoder);
@@ -1569,6 +1587,7 @@ const char* const* hb_video_encoder_get_levels(int encoder)
         case HB_VCODEC_X264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_VT_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
             return hb_h264_level_names;
 
 #if HB_PROJECT_FEATURE_VCE
@@ -1582,6 +1601,7 @@ const char* const* hb_video_encoder_get_levels(int encoder)
         case HB_VCODEC_X265_16BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
             return hb_h265_level_names;
 
 #ifdef __APPLE__
@@ -4186,6 +4206,12 @@ hb_filter_object_t * hb_filter_get( int filter_id )
             break;
 #endif
 
+#if HB_PROJECT_FEATURE_VAAPI
+        case HB_FILTER_VAAPI_HWUPLOAD:
+            filter = &hb_filter_vaapi_hwupload;
+            break;
+#endif
+
         case HB_FILTER_MT_FRAME:
             filter = &hb_filter_mt_frame;
             break;
@@ -5830,6 +5856,8 @@ const char * hb_get_format_name(int format)
             return "yuv444p10";
         case AV_PIX_FMT_YUV444P12:
             return "yuv444p12";
+        case AV_PIX_FMT_VAAPI:
+            return "vaapi";
         default:
             return NULL;
     }

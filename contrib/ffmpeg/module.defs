@@ -76,7 +76,10 @@ else
 endif
 
 ifneq (,$(FEATURE.vaapi))
-    FFMPEG.CONFIGURE.extra += --enable-vaapi
+    FFMPEG.CONFIGURE.extra += \
+        --enable-vaapi \
+        --enable-encoder=h264_vaapi \
+        --enable-encoder=hevc_vaapi
 endif
 
 ifeq (1,$(FEATURE.fdk_aac))

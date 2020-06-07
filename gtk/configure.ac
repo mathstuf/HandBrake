@@ -90,6 +90,10 @@ AC_ARG_ENABLE(qsv,
 	AS_HELP_STRING([--enable-qsv], [enable QSV encoder]),
 	use_qsv=yes, use_qsv=no)
 
+AC_ARG_ENABLE(vaapi,
+	AS_HELP_STRING([--enable-vaapi], [enable VAAPI encoder]),
+	use_vaapi=yes, use_vaapi=no)
+
 AC_ARG_ENABLE(gst,
 	AS_HELP_STRING([--disable-gst], [disable gstreamer (live preview)]),
 	gst_disable=yes, gst_disable=no)
@@ -221,6 +225,10 @@ fi
 
 if test "x$use_qsv" = "xyes" ; then
     HB_LIBS="$HB_LIBS -lmfx"
+fi
+
+if test "x$use_vaapi" = "xyes" ; then
+    HB_LIBS="$HB_LIBS -lva -lva-drm"
 fi
 
 case $host in

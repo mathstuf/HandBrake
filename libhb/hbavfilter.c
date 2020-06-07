@@ -137,6 +137,26 @@ hb_avfilter_graph_init(hb_value_t * settings, hb_filter_init_t * init)
     }
 #endif
 
+#if HB_PROJECT_FEATURE_VAAPI
+    {
+        int i;
+
+        for (i = 0; i < graph->avgraph->nb_filters; ++i)
+        {
+            int err;
+
+            AVFilterContext* f = graph->avgraph->filters[i];
+            if (!strstr(f->name, "hwupload"))
+                continue;
+
+            err = av_hwdevice_ctx_create(&f->hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, NULL, NULL, 0);
+            if (err < 0) {
+                fprintf(stderr, "Failed to create a VAAPI device. Error code: %s\n", av_err2str(err));
+            }
+        }
+    }
+#endif
+
     graph->output = avfilter;
 
     result = avfilter_graph_config(graph->avgraph, NULL);

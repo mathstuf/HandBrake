@@ -98,6 +98,16 @@ static const char * const h265_vt_profile_name[] =
     "auto", "main",  NULL // "main10" not currently supported.
 };
 
+static const char * const h264_vaapi_profile_names[] =
+{
+    "constrained_baseline", "main", "high", NULL
+};
+
+static const char * const h265_vaapi_profile_names[] =
+{
+    "main", "rext", NULL // "main10" not currently supported.
+};
+
 int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 {
     int ret = 0;
@@ -154,6 +164,10 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                     hb_log("encavcodecInit: H.264 (VideoToolbox)");
                     codec_name = "h264_videotoolbox";
                     break;
+                case HB_VCODEC_FFMPEG_VAAPI_H264:
+                    hb_log("encavcodecInit: H.264 (vaapi)");
+                    codec_name = "h264_vaapi";
+                    break;
             }
         }break;
         case AV_CODEC_ID_HEVC:
@@ -170,6 +184,10 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                 case HB_VCODEC_FFMPEG_VT_H265:
                     hb_log("encavcodecInit: H.265 (VideoToolbox)");
                     codec_name = "hevc_videotoolbox";
+                    break;
+                case HB_VCODEC_FFMPEG_VAAPI_H265:
+                    hb_log("encavcodecInit: H.265 (vaapi)");
+                    codec_name = "hevc_vaapi";
                     break;
             }
         }break;
@@ -319,6 +337,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             av_dict_set( &av_opts, "rc", "vbr_peak", 0 );
             hb_log( "encavcodec: encoding at rc=vbr_peak Bitrate %d", job->vbitrate );
         }
+
+        if ( job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+             job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265 ) {
+            av_dict_set( &av_opts, "rc", "CBR", 0 );
+            hb_log( "encavcodec: encoding at rc=CBR Bitrate %d", job->vbitrate );
+        }
     }
     else
     {
@@ -400,6 +424,17 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             }
             hb_log( "encavcodec: encoding at QP %.2f", job->vquality );
         }
+        else if ( job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265 )
+        {
+            av_dict_set( &av_opts, "rc", "CQP", 0 );
+
+            if ( job->vcodec != HB_VCODEC_FFMPEG_VAAPI_H265 )
+            {
+                // TODO: compute the quality parameter.
+                /* av_dict_set( &av_opts, "quality", qualityB, 0 ); */
+            }
+        }
         else
         {
             // These settings produce better image quality than
@@ -414,6 +449,22 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     context->width     = job->width;
     context->height    = job->height;
     context->pix_fmt   = AV_PIX_FMT_YUV420P;
+    if ( job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+         job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265 )
+    {
+        AVBufferRef *hw_device_ctx = NULL;
+        int err;
+
+        err = av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, NULL, NULL, 0);
+        if (err < 0) {
+            fprintf(stderr, "Failed to create a VAAPI device. Error code: %s\n", av_err2str(err));
+            av_free( context );
+            ret = 1;
+            goto done;
+        }
+        context->hw_device_ctx = hw_device_ctx;
+        context->pix_fmt = AV_PIX_FMT_VAAPI;
+    }
 
     context->sample_aspect_ratio.num = job->par.num;
     context->sample_aspect_ratio.den = job->par.den;
@@ -569,6 +620,34 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265)
     {
         av_dict_set(&av_opts, "gops_per_idr", "1", 0);
+    }
+
+    if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+        job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265)
+    {
+        // Set profile and level
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "constrained_baseline"))
+                av_dict_set(&av_opts, "profile", "constrained_baseline", 0);
+            else if (!strcasecmp(job->encoder_profile, "main"))
+                av_dict_set(&av_opts, "profile", "main", 0);
+            else if (!strcasecmp(job->encoder_profile, "high"))
+                av_dict_set(&av_opts, "profile", "high", 0);
+            else if (!strcasecmp(job->encoder_profile, "rext"))
+                av_dict_set(&av_opts, "profile", "rext", 0);
+        }
+
+        if (job->encoder_level != NULL && *job->encoder_level)
+        {
+            int i = 1;
+            while (hb_h264_level_names[i] != NULL)
+            {
+                if (!strcasecmp(job->encoder_level, hb_h264_level_names[i]))
+                    av_dict_set(&av_opts, "level", job->encoder_level, 0);
+                ++i;
+            }
+        }
     }
 
     if( job->pass_id == HB_PASS_ENCODE_1ST ||
@@ -1103,6 +1182,10 @@ const char* const* hb_av_profile_get_names(int encoder)
             return h264_vt_profile_name;
         case HB_VCODEC_FFMPEG_VT_H265:
             return h265_vt_profile_name;
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+            return h264_vaapi_profile_names;
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
+            return h265_vaapi_profile_names;
 
         default:
             return NULL;

@@ -483,6 +483,10 @@ extern hb_filter_object_t hb_filter_qsv_pre;
 extern hb_filter_object_t hb_filter_qsv_post;
 #endif
 
+#if HB_PROJECT_FEATURE_VAAPI
+extern hb_filter_object_t hb_filter_vaapi_hwupload;
+#endif
+
 extern hb_work_object_t * hb_objects;
 
 #define HB_WORK_IDLE     0

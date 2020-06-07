@@ -247,6 +247,14 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
             w = hb_get_work(h, WORK_ENCAVCODEC);
             w->codec_param = AV_CODEC_ID_VP9;
             break;
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_H264;
+            break;
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_HEVC;
+            break;
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
             w = hb_get_work(h, WORK_ENCX264);
@@ -539,6 +547,8 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_FFMPEG_NVENC_H265:
                 case HB_VCODEC_FFMPEG_VT_H264:
                 case HB_VCODEC_FFMPEG_VT_H265:
+                case HB_VCODEC_FFMPEG_VAAPI_H264:
+                case HB_VCODEC_FFMPEG_VAAPI_H265:
                     hb_log("     + profile: %s", job->encoder_profile);
                 default:
                     break;
@@ -563,6 +573,8 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_FFMPEG_VT_H264:
                 // VT h.265 currently only supports auto level
                 // case HB_VCODEC_FFMPEG_VT_H265:
+                case HB_VCODEC_FFMPEG_VAAPI_H264:
+                case HB_VCODEC_FFMPEG_VAAPI_H265:
                     hb_log("     + level:   %s", job->encoder_level);
                 default:
                     break;
@@ -1395,6 +1407,26 @@ static int sanitize_qsv( hb_job_t * job )
     return 0;
 }
 
+static int upload_to_device( hb_job_t * job )
+{
+#if HB_PROJECT_FEATURE_VAAPI
+    /*
+     * When VAAPI is used, append a filter to upload the frame to the device.
+     */
+    if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+        job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265)
+    {
+        // we need the upload filter
+        hb_dict_t * dict = hb_dict_init();
+        hb_filter_object_t *filter = hb_filter_init(HB_FILTER_VAAPI_HWUPLOAD);
+        hb_add_filter_dict(job, filter, dict);
+        hb_value_free(&dict);
+    }
+#endif // HB_PROJECT_FEATURE_VAAPI
+
+    return 0;
+}
+
 static void sanitize_filter_list(hb_list_t *list, hb_geometry_t src_geo)
 {
     // Add selective deinterlacing mode if comb detection is enabled
@@ -1522,6 +1554,14 @@ static void do_job(hb_job_t *job)
     // sanitize_qsv looks for subtitle render filter, so must happen after
     // sanitize_subtitle
     result = sanitize_qsv(job);
+    if (result)
+    {
+        *job->done_error = HB_ERROR_WRONG_INPUT;
+        *job->die = 1;
+        goto cleanup;
+    }
+    // upload_to_device looks for uploading to the hardware device if required.
+    result = upload_to_device(job);
     if (result)
     {
         *job->done_error = HB_ERROR_WRONG_INPUT;

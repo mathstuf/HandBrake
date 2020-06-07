@@ -1425,6 +1425,10 @@ def createCLI( cross = None ):
     grp.add_argument( '--enable-vce', dest="enable_vce", default=IfHost(True, '*-*-mingw*', none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-vce', dest="enable_vce", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
+    h = IfHost( 'Libva VAAPI video encoder', '*-*-linux*', none=argparse.SUPPRESS).value
+    grp.add_argument( '--enable-vaapi', dest="enable_vaapi", default=IfHost( True, '*-*-linux*', none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
+    grp.add_argument( '--disable-vaapi', dest="enable_vaapi", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
+
     cli.add_argument_group( grp )
 
     ## add launch options
@@ -1698,6 +1702,9 @@ try:
                                        '*-*-mingw*', none=False).value
     # Disable VCE on unsupported platforms
     options.enable_vce        = IfHost(options.enable_vce, '*-*-linux*', '*-*-mingw*',
+                                       none=False).value
+    # Disable VAAPI on unsupported platforms
+    options.enable_vaapi      = IfHost(options.enable_vaapi, '*-*-linux*',
                                        none=False).value
 
     #####################################
@@ -2011,6 +2018,7 @@ int main()
     doc.add( 'FEATURE.vce',        int( options.enable_vce ))
     doc.add( 'FEATURE.x265',       int( options.enable_x265 ))
     doc.add( 'FEATURE.numa',       int( options.enable_numa ))
+    doc.add( 'FEATURE.vaapi',      int( options.enable_vaapi ))
 
     if build_tuple.match( '*-*-darwin*' ) and options.cross is None:
         doc.add( 'FEATURE.xcode',      int( not (Tools.xcodebuild.fail or options.disable_xcode) ))
@@ -2137,6 +2145,8 @@ int main()
     stdout.write( ' (%s)\n' % note_unsupported ) if not (host_tuple.system == 'linux' or host_tuple.system == 'freebsd' or host_tuple.system == 'mingw') else stdout.write( '\n' )
     stdout.write( 'Enable VCE:         %s' % options.enable_vce )
     stdout.write( ' (%s)\n' % note_unsupported ) if not (host_tuple.system == 'linux' or host_tuple.system == 'mingw') else stdout.write( '\n' )
+    stdout.write( 'Enable VAAPI:       %s' % options.enable_vaapi )
+    stdout.write( ' (%s)\n' % note_unsupported ) if not (host_tuple.system == 'linux') else stdout.write( '\n' )
 
     if options.launch:
         stdout.write( '%s\n' % ('-' * 79) )
