@@ -314,7 +314,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             av_dict_set( &av_opts, "rc", "cbr_hq", 0 );
             hb_log( "encavcodec: encoding at rc=cbr_hq Bitrate %d", job->vbitrate );
         }
-        
+
         if ( job->vcodec == HB_VCODEC_FFMPEG_VCE_H264 || job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 ) {
             av_dict_set( &av_opts, "rc", "vbr_peak", 0 );
             hb_log( "encavcodec: encoding at rc=vbr_peak Bitrate %d", job->vbitrate );
@@ -1104,7 +1104,7 @@ const char* const* hb_av_profile_get_names(int encoder)
         case HB_VCODEC_FFMPEG_VT_H265:
             return h265_vt_profile_name;
 
-         default:
-             return NULL;
+        default:
+            return NULL;
      }
 }
